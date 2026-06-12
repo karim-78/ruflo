@@ -297,7 +297,17 @@ async function spawnClaudeCodeInstance(
       // HIGH-02: Strict boolean check (=== true) instead of loose truthiness (!== false)
       // to prevent undefined/null from being treated as "skip permissions".
       // Behavior change: only explicit --dangerously-skip-permissions flag triggers skip.
-      const skipPermissions = flags['dangerously-skip-permissions'] === true && !flags['no-auto-permissions'];
+      // #2269: the arg parser normalizes kebab-case to camelCase (parser.ts:350,
+      // normalizeKey) and stores only the normalized key, so reading
+      // flags['dangerously-skip-permissions'] alone is always undefined. Accept
+      // both forms — mirroring the isNonInteractive pattern a few lines above.
+      // The deny clause must ALSO accept the yargs-style negation the parser
+      // produces for `--no-auto-permissions` (stored as `autoPermissions: false`,
+      // NOT `noAutoPermissions: true`); without this third clause, the deny half
+      // never fires and `--no-auto-permissions` is silently ignored.
+      const skipPermissions =
+        (flags['dangerously-skip-permissions'] === true || flags.dangerouslySkipPermissions === true) &&
+        !(flags['no-auto-permissions'] || flags.noAutoPermissions || flags.autoPermissions === false);
       if (skipPermissions) {
         claudeArgs.push('--dangerously-skip-permissions');
         if (!isNonInteractive) {
